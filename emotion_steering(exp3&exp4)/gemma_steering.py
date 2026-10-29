@@ -135,7 +135,7 @@ def clean_space(sae_feature_container):
 
     active_sets = []
     for emo_id in target_emo_ids:
-        data = clean_sae_feature_container[emo_id]  # (10, D)
+        data = clean_sae_feature_container[emo_id]  
 
         if isinstance(data, torch.Tensor):
             active_mask = (data > 0).any(dim=0)

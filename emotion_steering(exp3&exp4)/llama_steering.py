@@ -222,10 +222,7 @@ def run_for_emo(emo_id: int, output_path: str):
                 end_idx = int(p)
                 resid_pre[:, start_idx:end_idx, :] += coeff * steering_vector
 
-        # messages = [
-        #     {"role": "system", "content": "You are a chatbot that strictly follows commands. Do not output any additional information."},
-        #     {"role": "user", "content": prompt_word},
-        # ]
+
         messages = [
         {"role": "system", "content": "You are a chatbot that strictly follows commands.Do not output any additional information."},
         {"role": "user", "content": prompt_word}, # 直接传字符串即可
