@@ -191,7 +191,7 @@ def run_for_emo(emo_id: int, output_path: str):
 
     # ---------- Get steering index ----------
     n_components, top_n_features = EMO_HYPERPARAMS[emo_id]
-    ster_index = get_steering_vectors(
+    steer_index = get_steering_vectors(
         new_sae_feature_container,
         num=emo_id,
         n_components=n_components,
@@ -199,16 +199,15 @@ def run_for_emo(emo_id: int, output_path: str):
     )
     print(f"emo_id={emo_id}, n_components={n_components}, top_n_features={top_n_features}")
     print(f"prompt_start_position={prompt_start_position}")
-    print(f"ster_index (len={len(ster_index)}): {ster_index}")
+    print(f"steer_index (len={len(steer_index)}): {steer_index}")
 
     # ---------- Load words and generate ----------
     df = pd.read_csv(EEMO_CSV_PATH)
     words = get_words_near_median(df, K_NEAR_MEDIAN)
     new_words = [w for w in words if w not in ADJ_FOR_PARA_WORDS]
-
     def generate_results(prompt_word, coeff, if_steering=True):
         steering_vector = torch.zeros_like(sae.W_dec[0])
-        for idx_ in ster_index:
+        for idx_ in steer_index:
             steering_vector += sae.W_dec[idx_]
 
         raw_prompt_tokens = model.to_tokens(prompt_word, prepend_bos=True)
@@ -223,10 +222,14 @@ def run_for_emo(emo_id: int, output_path: str):
                 end_idx = int(p)
                 resid_pre[:, start_idx:end_idx, :] += coeff * steering_vector
 
+        # messages = [
+        #     {"role": "system", "content": "You are a chatbot that strictly follows commands. Do not output any additional information."},
+        #     {"role": "user", "content": prompt_word},
+        # ]
         messages = [
-            {"role": "system", "content": "You are a chatbot that strictly follows commands. Do not output any additional information."},
-            {"role": "user", "content": prompt_word},
-        ]
+        {"role": "system", "content": "You are a chatbot that strictly follows commands.Do not output any additional information."},
+        {"role": "user", "content": prompt_word}, # 直接传字符串即可
+    ]
 
         input_ids = tokenizer.apply_chat_template(
             messages, add_generation_prompt=True, return_tensors="pt"

@@ -16,7 +16,7 @@ device = torch.device("cuda")
 MODEL_ID = "google/gemma-2-9b-it"
 RELEASE = "gemma-scope-9b-it-res"
 SAE_ID = "layer_9/width_16k/average_l0_88"
-EEMO_CSV_PATH = "/data/xiuwen/google/files/EEMO.csv"
+EEMO_CSV_PATH = "./EEMO.csv"
 
 K_NEAR_MEDIAN = 410
 COEFF_CONTAINER = [0, 5, 10, 15, 20]
@@ -33,8 +33,7 @@ EMO_HYPERPARAMS = {
     26: [9, 36],
 }
 
-# Prompt steering covers [int(p * start_position):int(p)].
-# Smaller values start earlier; 0.0 starts at 0 and 1.0 selects no positions.
+
 EMO_PROMPT_START_POSITIONS = {
     4:  0.6,  # anger
     12: 0.5,  # disgust
@@ -202,11 +201,11 @@ def run_for_emo(emo_id: int, output_path: str):
     new_sae_feature_container = clean_space(sae_feature_container)
 
     # ---------- Get steering index ----------
-    ster_index = get_steering_vectors_by_emo_params(new_sae_feature_container, emo_id=emo_id)
+    steer_index = get_steering_vectors_by_emo_params(new_sae_feature_container, emo_id=emo_id)
     n_components, top_n_features = EMO_HYPERPARAMS[emo_id]
     print(f"emo_id={emo_id}, n_components={n_components}, top_n_features={top_n_features}")
     print(f"prompt_start_position={prompt_start_position}")
-    print(f"ster_index (len={len(ster_index)}): {ster_index}")
+    print(f"steer_index (len={len(steer_index)}): {steer_index}")
 
     # ---------- Load words and generate ----------
     df = pd.read_csv(EEMO_CSV_PATH)
@@ -215,7 +214,7 @@ def run_for_emo(emo_id: int, output_path: str):
 
     def generate_results(prompt_word, coeff, if_steering=True):
         steering_vector = torch.zeros_like(sae.W_dec[0])
-        for idx in ster_index:
+        for idx in steer_index:
             steering_vector += sae.W_dec[idx]
 
         raw_prompt_tokens = model.to_tokens(prompt_word, prepend_bos=True)
@@ -231,9 +230,9 @@ def run_for_emo(emo_id: int, output_path: str):
                 resid_pre[:, start_idx:end_idx, :] += coeff * steering_vector
 
         messages = [
-            {"role": "system", "content": "You are a chatbot that strictly follows commands. Do not output any additional information."},
-            {"role": "user", "content": prompt_word},
-        ]
+                {"role": "user", "content": "You are a chatbot that strictly follows commands.Do not output any additional information."},
+                {"role": "assistant", "content": f"{prompt_word}"},
+            ]
 
         input_ids = tokenizer.apply_chat_template(
             messages,
@@ -266,6 +265,7 @@ def run_for_emo(emo_id: int, output_path: str):
 
     def generate_sentence_with_index(words_list, coeff):
         sentence_dict = {}
+
         for word in words_list:
             prompt_word = (
                 f'Generate a coherent and realistic sentence that naturally incorporates the word "{word}". '
