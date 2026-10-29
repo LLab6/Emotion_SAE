@@ -33,6 +33,17 @@ EMO_HYPERPARAMS = {
     26: [9, 36],
 }
 
+# Prompt steering covers [int(p * start_position):int(p)].
+# Smaller values start earlier; 0.0 starts at 0 and 1.0 selects no positions.
+EMO_PROMPT_START_POSITIONS = {
+    4:  0.6,  # anger
+    12: 0.5,  # disgust
+    16: 0.5,  # fear
+    19: 0.5,  # joy
+    23: 0.5,  # sadness
+    26: 0.6,  # surprise
+}
+
 TOP10_EN = {
     'admiration': ['admire', 'admiralty', 'adulation', 'adoration', 'admiral', 'appreciation', 'adored', 'praise', 'idolize', 'infatuated'],
     'adoration': ['adoring', 'adulation', 'adored', 'admiration', 'adore', 'admire', 'exaltation', 'worship', 'cherish', 'lovable'],
@@ -152,6 +163,15 @@ def run_for_emo(emo_id: int, output_path: str):
     if emo_id not in EMO_HYPERPARAMS:
         raise ValueError(f"Unknown emo_id={emo_id}. Allowed: {sorted(EMO_HYPERPARAMS.keys())}")
 
+    if emo_id not in EMO_PROMPT_START_POSITIONS:
+        raise ValueError(f"emo_id={emo_id} not found in EMO_PROMPT_START_POSITIONS.")
+    prompt_start_position = EMO_PROMPT_START_POSITIONS[emo_id]
+    if not 0.0 <= prompt_start_position <= 1.0:
+        raise ValueError(
+            f"EMO_PROMPT_START_POSITIONS[{emo_id}] must be between 0.0 and 1.0, "
+            f"got {prompt_start_position!r}."
+        )
+
     # Lazy-load model/tokenizer/SAE
     print("Loading model/tokenizer/SAE...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
@@ -185,6 +205,7 @@ def run_for_emo(emo_id: int, output_path: str):
     ster_index = get_steering_vectors_by_emo_params(new_sae_feature_container, emo_id=emo_id)
     n_components, top_n_features = EMO_HYPERPARAMS[emo_id]
     print(f"emo_id={emo_id}, n_components={n_components}, top_n_features={top_n_features}")
+    print(f"prompt_start_position={prompt_start_position}")
     print(f"ster_index (len={len(ster_index)}): {ster_index}")
 
     # ---------- Load words and generate ----------
@@ -205,7 +226,7 @@ def run_for_emo(emo_id: int, output_path: str):
             if resid_pre.shape[1] == 1:
                 return
             if if_steering:
-                start_idx = int(p * 0.5)  
+                start_idx = int(p * prompt_start_position)
                 end_idx = int(p)
                 resid_pre[:, start_idx:end_idx, :] += coeff * steering_vector
 
